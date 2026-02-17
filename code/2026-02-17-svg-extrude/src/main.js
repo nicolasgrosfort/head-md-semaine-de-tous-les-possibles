@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { STLExporter } from "three/addons/exporters/STLExporter.js";
 import { SVGLoader } from "three/addons/loaders/SVGLoader.js";
 import { generateSVG } from "./utils.js";
 
@@ -118,6 +119,26 @@ const maxDim = Math.max(fullSize.x, fullSize.y, fullSize.z);
 camera.position.set(0, 0, maxDim * 1.8);
 controls.target.set(0, 0, 0);
 controls.update();
+
+// --- Export STL ---
+function exportSTL() {
+  const exporter = new STLExporter();
+  const result = exporter.parse(scene, { binary: true });
+  const blob = new Blob([result], { type: "application/octet-stream" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "halftone-stamp.stl";
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+// Bouton d'export
+const btn = document.createElement("button");
+btn.textContent = "Exporter STL";
+btn.style.cssText =
+  "position:fixed;top:20px;right:20px;padding:10px 20px;font-size:14px;cursor:pointer;background:#222;color:#fff;border:none;border-radius:6px;z-index:10;";
+btn.addEventListener("click", exportSTL);
+document.body.appendChild(btn);
 
 // --- Animation loop ---
 function animate() {
