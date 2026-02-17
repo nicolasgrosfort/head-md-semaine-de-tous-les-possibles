@@ -4,16 +4,17 @@ import { SVGLoader } from "three/addons/loaders/SVGLoader.js";
 import "./style.css";
 
 // ============================================
-// VARIABLE D'EXTRUSION — modifie cette valeur !
+// VARIABLES — modifie ces valeurs !
 // ============================================
-const EXTRUDE_DEPTH = 20;
+const BASE_EXTRUDE_DEPTH = 2; // profondeur de la base #base (mm)
+const STAMP_EXTRUDE_DEPTH = 6; // profondeur du reste du tampon (mm)
 // ============================================
 
 // --- Setup renderer ---
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
-renderer.setClearColor(0x1a1a2e);
+renderer.setClearColor(0xf5f5f5);
 document.getElementById("app").appendChild(renderer.domElement);
 
 // --- Setup scene & camera ---
@@ -24,7 +25,7 @@ const camera = new THREE.PerspectiveCamera(
   0.1,
   2000,
 );
-camera.position.set(0, 0, 300);
+camera.position.set(0, 0, 100);
 
 // --- OrbitControls ---
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -48,15 +49,27 @@ const loader = new SVGLoader();
 loader.load("/2026-02-17-halftones.svg", (data) => {
   const group = new THREE.Group();
 
-  const extrudeSettings = {
-    depth: EXTRUDE_DEPTH,
-    bevelEnabled: true,
-    bevelThickness: 1,
-    bevelSize: 0.5,
-    bevelSegments: 3,
+  const baseExtrudeSettings = {
+    depth: BASE_EXTRUDE_DEPTH,
+    bevelEnabled: false,
   };
 
-  const material = new THREE.MeshStandardMaterial({
+  const stampExtrudeSettings = {
+    depth: STAMP_EXTRUDE_DEPTH,
+    bevelEnabled: true,
+    bevelThickness: 0.2,
+    bevelSize: 0.1,
+    bevelSegments: 2,
+  };
+
+  const baseMaterial = new THREE.MeshStandardMaterial({
+    color: 0xcccccc,
+    metalness: 0.2,
+    roughness: 0.5,
+    side: THREE.DoubleSide,
+  });
+
+  const stampMaterial = new THREE.MeshStandardMaterial({
     color: 0xe0e0e0,
     metalness: 0.3,
     roughness: 0.4,
@@ -65,36 +78,37 @@ loader.load("/2026-02-17-halftones.svg", (data) => {
 
   for (const path of data.paths) {
     const fillColor = path.userData.style.fill;
-
-    // Skip paths with no fill
     if (fillColor === "none") continue;
+
+    const isBase = path.userData.node.id === "base";
+    const settings = isBase ? baseExtrudeSettings : stampExtrudeSettings;
+    const material = isBase ? baseMaterial : stampMaterial;
 
     const shapes = SVGLoader.createShapes(path);
 
     for (const shape of shapes) {
-      const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+      const geometry = new THREE.ExtrudeGeometry(shape, settings);
       const mesh = new THREE.Mesh(geometry, material);
       group.add(mesh);
     }
   }
 
-  // Center the group
-  const box = new THREE.Box3().setFromObject(group);
-  const center = box.getCenter(new THREE.Vector3());
-  const size = box.getSize(new THREE.Vector3());
-
-  group.position.x = -center.x;
-  group.position.y = -center.y;
-  group.position.z = -center.z;
-
   // SVG y-axis is inverted compared to Three.js
   group.scale.y *= -1;
 
+  // Centrer le tout après le flip
+  const fullBox = new THREE.Box3().setFromObject(group);
+  const fullCenter = fullBox.getCenter(new THREE.Vector3());
+  const fullSize = fullBox.getSize(new THREE.Vector3());
+
+  group.position.sub(fullCenter);
+
   scene.add(group);
 
-  // Adjust camera to fit the object
-  const maxDim = Math.max(size.x, size.y, size.z);
+  // Ajuster la caméra et le point de pivot des contrôles
+  const maxDim = Math.max(fullSize.x, fullSize.y, fullSize.z);
   camera.position.set(0, 0, maxDim * 1.8);
+  controls.target.set(0, 0, 0);
   controls.update();
 });
 
