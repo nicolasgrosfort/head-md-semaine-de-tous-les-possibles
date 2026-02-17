@@ -13,8 +13,8 @@ const svgString = new XMLSerializer().serializeToString(svg);
 // ============================================
 // VARIABLES — modifie ces valeurs !
 // ============================================
-const BASE_EXTRUDE_DEPTH = 2; // profondeur de la base #base (mm)
-const STAMP_EXTRUDE_DEPTH = 6; // profondeur du reste du tampon (mm)
+const BASE_EXTRUDE_DEPTH = 6; // profondeur de la base #base (mm)
+const STAMP_EXTRUDE_DEPTH = 8; // profondeur du reste du tampon (mm)
 // ============================================
 
 // --- Setup renderer ---
@@ -52,73 +52,75 @@ scene.add(backLight);
 
 // --- Parse SVG & extrude ---
 const loader = new SVGLoader();
-const data = loader.parse(svgString);
+
+loader.load("/bleu-unified.svg", (data) => {
+  const group = new THREE.Group();
+
+  const baseExtrudeSettings = {
+    depth: BASE_EXTRUDE_DEPTH,
+    bevelEnabled: false,
+  };
+
+  const stampExtrudeSettings = {
+    depth: STAMP_EXTRUDE_DEPTH,
+    bevelEnabled: true,
+    bevelThickness: 0.2,
+    bevelSize: 0.1,
+    bevelSegments: 2,
+  };
+
+  const baseMaterial = new THREE.MeshStandardMaterial({
+    color: 0xcccccc,
+    metalness: 0.2,
+    roughness: 0.5,
+    side: THREE.DoubleSide,
+  });
+
+  const stampMaterial = new THREE.MeshStandardMaterial({
+    color: 0xe0e0e0,
+    metalness: 0.3,
+    roughness: 0.4,
+    side: THREE.DoubleSide,
+  });
+
+  for (const path of data.paths) {
+    const fillColor = path.userData.style.fill;
+    if (fillColor === "none") continue;
+
+    const isBase = path.userData.node.id === "base";
+    const settings = isBase ? baseExtrudeSettings : stampExtrudeSettings;
+    const material = isBase ? baseMaterial : stampMaterial;
+
+    const shapes = SVGLoader.createShapes(path);
+
+    for (const shape of shapes) {
+      const geometry = new THREE.ExtrudeGeometry(shape, settings);
+      const mesh = new THREE.Mesh(geometry, material);
+      group.add(mesh);
+    }
+  }
+
+  // SVG y-axis is inverted compared to Three.js
+  group.scale.y *= -1;
+
+  // Centrer le tout après le flip
+  const fullBox = new THREE.Box3().setFromObject(group);
+  const fullCenter = fullBox.getCenter(new THREE.Vector3());
+  const fullSize = fullBox.getSize(new THREE.Vector3());
+
+  group.position.sub(fullCenter);
+
+  scene.add(group);
+
+  // Ajuster la caméra et le point de pivot des contrôles
+  const maxDim = Math.max(fullSize.x, fullSize.y, fullSize.z);
+  camera.position.set(0, 0, maxDim * 1.8);
+  controls.target.set(0, 0, 0);
+  controls.update();
+});
+// const data = loader.parse(svgString);
 
 console.log("SVG:", svg);
-
-const group = new THREE.Group();
-
-const baseExtrudeSettings = {
-  depth: BASE_EXTRUDE_DEPTH,
-  bevelEnabled: false,
-};
-
-const stampExtrudeSettings = {
-  depth: STAMP_EXTRUDE_DEPTH,
-  bevelEnabled: true,
-  bevelThickness: 0.2,
-  bevelSize: 0.1,
-  bevelSegments: 2,
-};
-
-const baseMaterial = new THREE.MeshStandardMaterial({
-  color: 0xcccccc,
-  metalness: 0.2,
-  roughness: 0.5,
-  side: THREE.DoubleSide,
-});
-
-const stampMaterial = new THREE.MeshStandardMaterial({
-  color: 0xe0e0e0,
-  metalness: 0.3,
-  roughness: 0.4,
-  side: THREE.DoubleSide,
-});
-
-for (const path of data.paths) {
-  const fillColor = path.userData.style.fill;
-  if (fillColor === "none") continue;
-
-  const isBase = path.userData.node.id === "base";
-  const settings = isBase ? baseExtrudeSettings : stampExtrudeSettings;
-  const material = isBase ? baseMaterial : stampMaterial;
-
-  const shapes = SVGLoader.createShapes(path);
-
-  for (const shape of shapes) {
-    const geometry = new THREE.ExtrudeGeometry(shape, settings);
-    const mesh = new THREE.Mesh(geometry, material);
-    group.add(mesh);
-  }
-}
-
-// SVG y-axis is inverted compared to Three.js
-group.scale.y *= -1;
-
-// Centrer le tout après le flip
-const fullBox = new THREE.Box3().setFromObject(group);
-const fullCenter = fullBox.getCenter(new THREE.Vector3());
-const fullSize = fullBox.getSize(new THREE.Vector3());
-
-group.position.sub(fullCenter);
-
-scene.add(group);
-
-// Ajuster la caméra et le point de pivot des contrôles
-const maxDim = Math.max(fullSize.x, fullSize.y, fullSize.z);
-camera.position.set(0, 0, maxDim * 1.8);
-controls.target.set(0, 0, 0);
-controls.update();
 
 // --- Export STL ---
 function exportSTL() {
