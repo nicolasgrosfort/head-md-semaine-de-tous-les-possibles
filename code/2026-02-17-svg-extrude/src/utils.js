@@ -15,24 +15,35 @@ export const generateSVG = (width = 182.42, height = 253.28) => {
   rect.setAttribute("id", "base");
   svg.appendChild(rect);
 
-  const amount = 50;
-  const margin = 2;
-  const gap = 1;
+  // --- Halftone gradient settings ---
+  const margin = 8;
+  const cols = 50;
+  const spacing = (width - margin * 2) / cols;
+  const rows = Math.floor((height - margin * 2) / spacing);
+  const maxRadius = spacing * 0.4; // rayon max d'un point
+  const minRadius = spacing * 0.2; // rayon min d'un point
 
-  const radius = ((width - margin * 2 - gap * (amount - 1)) / amount) * 0.5;
+  // Direction du dégradé : de haut (gros) vers bas (petit)
+  // Tu peux changer gradientFn pour varier l'effet
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      const cx = margin + spacing * 0.5 + col * spacing;
+      const cy = margin + spacing * 0.5 + row * spacing;
 
-  for (let line = 0; line < 10; line++) {
-    for (let row = 0; row < amount; row++) {
+      // t va de 0 (haut) à 1 (bas)
+      const t = row / (rows - 1);
+
+      // Interpolation du rayon : gros en haut, petit en bas
+      const radius = maxRadius * (1 - t) + minRadius * t;
+
+      if (radius < 0.1) continue; // skip les points trop petits
+
       const circle = document.createElementNS(
         "http://www.w3.org/2000/svg",
         "circle",
       );
-
-      const x = margin + radius + row * (radius * 2 + gap);
-      const y = radius + margin + line * (radius * 2 + gap);
-
-      circle.setAttribute("cx", x);
-      circle.setAttribute("cy", y);
+      circle.setAttribute("cx", cx);
+      circle.setAttribute("cy", cy);
       circle.setAttribute("r", radius);
       circle.setAttribute("fill", "white");
       svg.appendChild(circle);
