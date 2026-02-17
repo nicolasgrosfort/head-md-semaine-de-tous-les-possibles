@@ -1,0 +1,8 @@
+{
+  "scripts": {
+    "convert": "node main.js"
+  },
+  "dependencies": {
+    "sharp": "^0.34.5"
+  }
+}
